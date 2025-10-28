@@ -1074,6 +1074,30 @@ async def integrated_execute(
                             timeout=10.0  # 10秒超时
                         )
                     except asyncio.TimeoutError:
+
+                        linsight_session_version_model = await state_message_manager.get_session_version_info()
+
+                        if linsight_session_version_model.status in [
+                            SessionVersionStatusEnum.COMPLETED,
+                            SessionVersionStatusEnum.TERMINATED,
+                            SessionVersionStatusEnum.FAILED
+                        ]:
+                            message = MessageData(
+                                event_type=MessageEventType.FINAL_RESULT if linsight_session_version_model.status == SessionVersionStatusEnum.COMPLETED else MessageEventType.TASK_TERMINATED,
+                                data=linsight_session_version_model.model_dump()
+                            )
+
+                            if message.event_type == MessageEventType.FINAL_RESULT:
+                                final_result_message = message
+
+                            yield {
+                                "event": "linsight_execute_message",
+                                "data": message.model_dump_json()
+                            }
+
+                            logger.info(f"用户 {login_user.user_id} 灵思执行已结束，停止获取消息")
+                            break
+
                         # 超时继续等待
                         continue
                     except Exception as e:
